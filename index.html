@@ -3526,6 +3526,32 @@ body{
 .status-select{max-width:122px}
 @media(max-width:480px){.client-metrics,.quick-stats{grid-template-columns:repeat(3,1fr)}.history-row{grid-template-columns:58px 1fr}.history-row>strong:last-child{grid-column:2}.smart-panel{padding:12px}}
 
+
+/* ===== Servicios múltiples ===== */
+.service-field{display:grid;gap:7px;min-width:0}
+.field-label{color:var(--muted);font-size:11px;font-weight:500}
+.field-label small{margin-left:5px;color:#b5aaa4;font-weight:500}
+.service-multi{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.service-option{
+  display:flex;align-items:center;gap:8px;min-height:44px;padding:10px 11px;
+  border:1px solid var(--line);border-radius:12px;background:#fcfaf7;
+  color:var(--ink);font-size:11px;cursor:pointer;transition:.16s ease;
+}
+.service-option input{
+  width:17px;height:17px;min-width:17px;margin:0;padding:0;accent-color:var(--accent-dark);
+}
+.service-option:has(input:checked){
+  border-color:var(--accent);
+  background:linear-gradient(145deg,#f4e5df,#f8eee9);
+  box-shadow:inset 0 0 0 1px rgba(197,158,145,.13);
+}
+.service-option span{line-height:1.25}
+.service-summary{min-height:18px;color:var(--muted);font-size:10px;line-height:1.4}
+@media(max-width:480px){
+  .service-multi{grid-template-columns:1fr 1fr;gap:6px}
+  .service-option{min-height:42px;padding:9px 8px;font-size:10px}
+}
+
 </style>
 </head>
 <body>
@@ -3683,15 +3709,20 @@ body{
       <div class="helper-date" id="formDatePreview"></div>
 
       <div class="row">
-        <label>Servicio
-          <select id="formService">
-            <option>Diseño de cejas</option>
-            <option>Laminado</option>
-            <option>Henna</option>
-            <option>Diseño + Henna</option>
-            <option>Otro</option>
-          </select>
-        </label>
+        <div class="service-field">
+          <span class="field-label">Servicios <small>Selecciona uno o varios</small></span>
+          <div class="service-multi" id="formServices">
+            <label class="service-option"><input type="checkbox" value="Diseño de cejas"><span>Diseño de cejas</span></label>
+            <label class="service-option"><input type="checkbox" value="Laminado"><span>Laminado</span></label>
+            <label class="service-option"><input type="checkbox" value="Henna"><span>Henna</span></label>
+            <label class="service-option"><input type="checkbox" value="Diseño + Henna"><span>Diseño + Henna</span></label>
+            <label class="service-option"><input type="checkbox" value="Depilación de bozo"><span>Depilación de bozo</span></label>
+            <label class="service-option"><input type="checkbox" value="Depilación de patillas"><span>Depilación de patillas</span></label>
+            <label class="service-option"><input type="checkbox" value="Depilación de axilas"><span>Depilación de axilas</span></label>
+            <label class="service-option"><input type="checkbox" value="Otro"><span>Otro</span></label>
+          </div>
+          <div class="service-summary" id="serviceSummary">Selecciona al menos un servicio.</div>
+        </div>
         <label>Estado
           <select id="formStatus">
             <option>Confirmado</option>
@@ -3793,6 +3824,46 @@ function fmtMoney(v){
   return "$"+Number(v||0).toFixed(2).replace(".00","");
 }
 
+
+const SERVICE_VALUES = [
+  "Diseño de cejas",
+  "Laminado",
+  "Henna",
+  "Diseño + Henna",
+  "Depilación de bozo",
+  "Depilación de patillas",
+  "Depilación de axilas",
+  "Otro"
+];
+
+function normalizeStoredServices(value){
+  if (Array.isArray(value)) return value.filter(Boolean);
+  if (!value) return [];
+  if (SERVICE_VALUES.includes(value)) return [value];
+  return String(value).split(" + ").map(s=>s.trim()).filter(Boolean);
+}
+
+function getSelectedServices(){
+  return [...document.querySelectorAll('#formServices input[type="checkbox"]:checked')].map(input=>input.value);
+}
+
+function updateServiceSummary(){
+  const el = $("serviceSummary");
+  if (!el) return;
+  const selected = getSelectedServices();
+  el.textContent = selected.length
+    ? (selected.length === 1 ? "1 servicio seleccionado: " : selected.length + " servicios seleccionados: ") + selected.join(" · ")
+    : "Selecciona al menos un servicio.";
+}
+
+function setSelectedServices(value){
+  const selected = new Set(normalizeStoredServices(value));
+  const boxes = [...document.querySelectorAll('#formServices input[type="checkbox"]')];
+  boxes.forEach(box=>box.checked = selected.has(box.value));
+  if (!selected.size && boxes.length) boxes[0].checked = true;
+  updateServiceSummary();
+}
+
 function openModal(editId){
   document.body.classList.add("modal-open");
   $("editId").value = editId || "";
@@ -3805,7 +3876,7 @@ function openModal(editId){
     $("formWeekday").value = String((d.getDay()+6)%7);
     $("formTime").value = a.time;
     $("formName").value = a.name;
-    $("formService").value = a.service || "Diseño de cejas";
+    setSelectedServices(a.services || a.service || "Diseño de cejas");
     $("formStatus").value = a.status || "Confirmado";
     $("formPrice").value = a.price || "";
     $("formContact").value = a.contact || "";
@@ -3816,7 +3887,7 @@ function openModal(editId){
     $("formWeekday").value = String(selectedWeekday);
     $("formTime").value = "10:00";
     $("formName").value = "";
-    $("formService").value = "Diseño de cejas";
+    setSelectedServices(["Diseño de cejas"]);
     $("formStatus").value = "Confirmado";
     $("formPrice").value = "";
     $("formContact").value = "";
@@ -3848,6 +3919,12 @@ function saveTurn(){
     alert("Escribe el nombre de la clienta y la hora.");
     return;
   }
+  const selectedServices = getSelectedServices();
+  if (!selectedServices.length) {
+    alert("Selecciona al menos un servicio para este turno.");
+    return;
+  }
+
   const week = Number($("formWeek").value);
   const weekday = Number($("formWeekday").value);
   const d = dateFor(viewYear, viewMonth, week, weekday);
@@ -3858,7 +3935,8 @@ function saveTurn(){
     date: iso(d),
     time,
     name,
-    service: $("formService").value,
+    services: selectedServices,
+    service: selectedServices.join(" + "),
     status: $("formStatus").value,
     price: $("formPrice").value,
     contact: $("formContact").value.trim(),
@@ -4061,7 +4139,11 @@ function getClients(){
     const paid=c.items.filter(a=>["Completado","Confirmado"].includes(a.status));
     const canc=c.items.filter(a=>a.status==="Cancelado").length;
     const spent=paid.reduce((s,a)=>s+Number(a.price||0),0);
-    const serviceCounts={}; c.items.forEach(a=>{if(a.service) serviceCounts[a.service]=(serviceCounts[a.service]||0)+1;});
+    const serviceCounts={};
+    c.items.forEach(a=>{
+      const list = Array.isArray(a.services) && a.services.length ? a.services : normalizeStoredServices(a.service);
+      list.forEach(s=>{if(s) serviceCounts[s]=(serviceCounts[s]||0)+1;});
+    });
     c.favorite=Object.entries(serviceCounts).sort((a,b)=>b[1]-a[1])[0]?.[0]||"Sin datos";
     c.visits=done.length || c.items.filter(a=>a.status!=="Cancelado"&&a.status!=="No asistió").length;
     c.spent=spent; c.cancelled=canc;
@@ -4077,7 +4159,7 @@ function renderClientSuggestions(){
 function autofillClient(){
   const c=getClients().find(x=>norm(x.name)===norm($("formName").value)); if(!c)return;
   if(!$("formContact").value) $("formContact").value=c.contact||"";
-  if(c.favorite && c.favorite!=="Sin datos") $("formService").value=c.favorite;
+  if(c.favorite && c.favorite!=="Sin datos") setSelectedServices(c.favorite);
 }
 function selectedFormDate(){return iso(dateFor(viewYear,viewMonth,Number($("formWeek").value),Number($("formWeekday").value)));}
 function updateOccupiedTimes(){
@@ -4227,6 +4309,11 @@ $("formWeekday").addEventListener("change",updateOccupiedTimes);
 $("clientSearchInput").addEventListener("input",renderClients);
 $("closeClientProfile").addEventListener("click",()=>$("clientProfileModal").classList.remove("show"));
 $("clientProfileModal").addEventListener("click",e=>{if(e.target===$("clientProfileModal"))$("clientProfileModal").classList.remove("show");});
+
+document.querySelectorAll('#formServices input[type="checkbox"]').forEach(box=>{
+  box.addEventListener("change", updateServiceSummary);
+});
+updateServiceSummary();
 
 render();
 
