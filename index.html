@@ -8,6 +8,9 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Amanda Brows">
 <title>Amanda Brows — Agenda</title>
+<link rel="apple-touch-icon" href="amanda-brows-icon.png">
+<link rel="icon" type="image/png" href="amanda-brows-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
 <style>
 
 
@@ -3504,6 +3507,25 @@ body{
   }
 }
 
+
+
+/* ===== Amanda Brows V3 · Clientas, conflictos y recordatorios ===== */
+.smart-panel{margin-top:16px;padding:14px;border:1px solid var(--line);border-radius:18px;background:#fffdfb}
+.smart-panel h4{margin:0 0 10px;font-family:Georgia,"Times New Roman",serif;font-size:17px;font-weight:500}
+.client-search{display:flex;gap:8px;margin-bottom:10px}.client-search input{flex:1}.client-list{display:grid;gap:8px;max-height:310px;overflow:auto}
+.client-card{border:1px solid var(--line);border-radius:14px;padding:11px;background:#fcfaf7;cursor:pointer}.client-card:hover{border-color:var(--accent)}
+.client-card strong{display:block;font-size:13px}.client-card small{display:block;color:var(--muted);margin-top:4px;font-size:10px}
+.client-metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px}.client-metric{padding:7px;border-radius:10px;background:var(--soft);text-align:center}.client-metric b{display:block;font-size:12px}.client-metric span{font-size:9px;color:var(--muted)}
+.smart-note{margin-top:8px;padding:9px 10px;border-radius:11px;background:#faf5f2;color:var(--muted);font-size:10px;line-height:1.4}
+.conflict-warning{display:none;padding:10px 12px;border-radius:12px;background:#fff1ef;border:1px solid #e8bbb4;color:#8d554d;font-size:12px;line-height:1.35}.conflict-warning.show{display:block}
+.occupied-wrap{display:grid;gap:6px}.occupied-label{font-size:10px;color:var(--muted)}.occupied-times{display:flex;flex-wrap:wrap;gap:6px}.occupied-chip{padding:5px 8px;border-radius:999px;background:#f6e6e1;color:#8f665e;font-size:10px;border:1px solid #ead4cd}.occupied-chip.empty{background:#f7f5f2;color:var(--muted);border-color:var(--line)}
+.reminder-list{display:grid;gap:7px}.reminder-item{padding:10px 11px;border:1px solid var(--line);border-radius:12px;background:#fcfaf7}.reminder-item strong{display:block;font-size:11px}.reminder-item span{display:block;color:var(--muted);font-size:10px;margin-top:3px}
+.client-profile-modal{position:fixed;inset:0;z-index:300000;display:none;align-items:flex-end;justify-content:center;padding:16px;background:rgba(35,30,26,.38);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}.client-profile-modal.show{display:flex}.client-profile-box{width:min(560px,100%);max-height:88dvh;overflow:auto;background:var(--card);border:1px solid var(--line);border-radius:27px;padding:20px;box-shadow:0 24px 70px rgba(72,47,39,.22)}
+.client-profile-head{display:flex;align-items:center;justify-content:space-between;gap:10px}.client-profile-head h3{margin:0;font-family:Georgia,"Times New Roman",serif;font-weight:500}.history-list{display:grid;gap:8px;margin-top:12px}.history-row{display:grid;grid-template-columns:70px 1fr auto;gap:8px;align-items:center;padding:10px;border:1px solid var(--line);border-radius:12px}.history-row small{color:var(--muted)}
+.quick-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:12px 0}.quick-stat{padding:10px;text-align:center;border:1px solid var(--line);border-radius:12px;background:#fcfaf7}.quick-stat b{display:block}.quick-stat span{display:block;color:var(--muted);font-size:9px;margin-top:3px}
+.status-select{max-width:122px}
+@media(max-width:480px){.client-metrics,.quick-stats{grid-template-columns:repeat(3,1fr)}.history-row{grid-template-columns:58px 1fr}.history-row>strong:last-child{grid-column:2}.smart-panel{padding:12px}}
+
 </style>
 </head>
 <body>
@@ -3545,6 +3567,16 @@ body{
       <div class="general-stat"><span>Cancelados</span><strong id="statCancelled">0</strong></div>
       <div class="general-stat"><span>Ganancias del mes</span><strong id="statMonthRevenue">$0</strong></div>
     </div>
+
+
+    <div class="drawer-section-title">Clientas</div>
+    <div class="smart-panel">
+      <div class="client-search"><input id="clientSearchInput" type="search" placeholder="Buscar nombre, teléfono o Instagram"></div>
+      <div class="client-list" id="clientList"></div>
+    </div>
+
+    <div class="drawer-section-title">Recordatorios inteligentes</div>
+    <div class="smart-panel"><div class="reminder-list" id="smartReminders"></div></div>
 
     <div class="drawer-section-title">Resumen por año</div>
     <div class="year-switcher">
@@ -3642,8 +3674,11 @@ body{
 
       <div class="row">
         <label>Hora<input id="formTime" type="time" value="10:00"></label>
-        <label>Nombre de la clienta<input id="formName" type="text" placeholder="Nombre de la clienta"></label>
+        <label>Nombre de la clienta<input id="formName" type="text" list="clientSuggestions" placeholder="Nombre de la clienta"></label>
       </div>
+      <datalist id="clientSuggestions"></datalist>
+      <div class="conflict-warning" id="conflictWarning"></div>
+      <div class="occupied-wrap"><div class="occupied-label">Horarios ocupados ese día</div><div class="occupied-times" id="occupiedTimes"></div></div>
 
       <div class="helper-date" id="formDatePreview"></div>
 
@@ -3661,7 +3696,9 @@ body{
           <select id="formStatus">
             <option>Confirmado</option>
             <option>Pendiente</option>
+            <option>Completado</option>
             <option>Cancelado</option>
+            <option>No asistió</option>
           </select>
         </label>
       </div>
@@ -3678,6 +3715,20 @@ body{
         <button class="save-btn" id="saveTurnBtn" type="button">Guardar turno</button>
       </div>
     </div>
+  </div>
+</div>
+
+
+<div class="client-profile-modal" id="clientProfileModal">
+  <div class="client-profile-box">
+    <div class="client-profile-head"><h3 id="clientProfileName">Clienta</h3><button class="close" id="closeClientProfile" type="button">×</button></div>
+    <div class="quick-stats">
+      <div class="quick-stat"><b id="clientVisits">0</b><span>Visitas</span></div>
+      <div class="quick-stat"><b id="clientSpent">$0</b><span>Total gastado</span></div>
+      <div class="quick-stat"><b id="clientCancelled">0</b><span>Cancelaciones</span></div>
+    </div>
+    <div class="smart-note" id="clientFavorite"></div>
+    <div class="history-list" id="clientHistory"></div>
   </div>
 </div>
 
@@ -3913,7 +3964,7 @@ function renderAppointments(){
 
     const status = document.createElement("select");
     status.className = "status-select";
-    ["Confirmado","Pendiente","Cancelado"].forEach(s=>{
+    ["Confirmado","Pendiente","Completado","Cancelado","No asistió"].forEach(s=>{
       const o=document.createElement("option");
       o.value=s;o.textContent=s;if(s===a.status)o.selected=true;
       status.appendChild(o);
@@ -3951,7 +4002,7 @@ function renderStats(){
   const weekItems = appointments.filter(a=>weekDates.includes(a.date) && a.status!=="Cancelado");
 
   const monthRevenue = appointments
-    .filter(a=>a.date.startsWith(monthPrefix) && a.status==="Confirmado")
+    .filter(a=>a.date.startsWith(monthPrefix) && ["Confirmado","Completado"].includes(a.status))
     .reduce((s,a)=>s+Number(a.price||0),0);
 
   $("topToday").textContent = todayItems.length;
@@ -3971,7 +4022,7 @@ function renderStats(){
 function renderYearSummary(){
   $("summaryYear").textContent = summaryYear;
   const yearItems = appointments.filter(a=>Number(a.date.slice(0,4))===summaryYear);
-  const confirmed = yearItems.filter(a=>a.status==="Confirmado");
+  const confirmed = yearItems.filter(a=>["Confirmado","Completado"].includes(a.status));
   const cancelled = yearItems.filter(a=>a.status==="Cancelado");
   const revenue = confirmed.reduce((s,a)=>s+Number(a.price||0),0);
 
@@ -3984,7 +4035,7 @@ function renderYearSummary(){
   for(let m=0;m<12;m++){
     const prefix = summaryYear+"-"+pad(m+1);
     const items = yearItems.filter(a=>a.date.startsWith(prefix));
-    const rev = items.filter(a=>a.status==="Confirmado").reduce((s,a)=>s+Number(a.price||0),0);
+    const rev = items.filter(a=>["Confirmado","Completado"].includes(a.status)).reduce((s,a)=>s+Number(a.price||0),0);
 
     const row=document.createElement("div");
     row.className="month-stat-row";
@@ -3995,10 +4046,85 @@ function renderYearSummary(){
   }
 }
 
+
+function norm(s){ return String(s||"").trim().toLowerCase(); }
+function clientKey(a){ return norm(a.contact) || norm(a.name); }
+function getClients(){
+  const map = new Map();
+  appointments.forEach(a=>{
+    const key=clientKey(a); if(!key) return;
+    if(!map.has(key)) map.set(key,{key,name:a.name||"Sin nombre",contact:a.contact||"",items:[]});
+    const c=map.get(key); c.items.push(a); if(a.name) c.name=a.name; if(a.contact) c.contact=a.contact;
+  });
+  return Array.from(map.values()).map(c=>{
+    const done=c.items.filter(a=>a.status==="Completado");
+    const paid=c.items.filter(a=>["Completado","Confirmado"].includes(a.status));
+    const canc=c.items.filter(a=>a.status==="Cancelado").length;
+    const spent=paid.reduce((s,a)=>s+Number(a.price||0),0);
+    const serviceCounts={}; c.items.forEach(a=>{if(a.service) serviceCounts[a.service]=(serviceCounts[a.service]||0)+1;});
+    c.favorite=Object.entries(serviceCounts).sort((a,b)=>b[1]-a[1])[0]?.[0]||"Sin datos";
+    c.visits=done.length || c.items.filter(a=>a.status!=="Cancelado"&&a.status!=="No asistió").length;
+    c.spent=spent; c.cancelled=canc;
+    c.last=[...c.items].filter(a=>a.status!=="Cancelado").sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time))[0]||null;
+    return c;
+  }).sort((a,b)=>a.name.localeCompare(b.name));
+}
+
+function renderClientSuggestions(){
+  const dl=$("clientSuggestions"); if(!dl) return; dl.innerHTML="";
+  getClients().forEach(c=>{const o=document.createElement("option");o.value=c.name;o.label=c.contact||c.name;dl.appendChild(o);});
+}
+function autofillClient(){
+  const c=getClients().find(x=>norm(x.name)===norm($("formName").value)); if(!c)return;
+  if(!$("formContact").value) $("formContact").value=c.contact||"";
+  if(c.favorite && c.favorite!=="Sin datos") $("formService").value=c.favorite;
+}
+function selectedFormDate(){return iso(dateFor(viewYear,viewMonth,Number($("formWeek").value),Number($("formWeekday").value)));}
+function updateOccupiedTimes(){
+  const box=$("occupiedTimes"); if(!box)return; const date=selectedFormDate(); const editId=$("editId").value;
+  const busy=appointments.filter(a=>a.date===date&&a.id!==editId&&a.status!=="Cancelado").sort((a,b)=>a.time.localeCompare(b.time));
+  box.innerHTML=busy.length?busy.map(a=>'<span class="occupied-chip">'+a.time+' · '+escapeHtml(a.name)+'</span>').join(''):'<span class="occupied-chip empty">Ningún horario ocupado</span>';
+  checkConflictLive();
+}
+function checkConflictLive(){
+  const w=$("conflictWarning"); if(!w)return; const date=selectedFormDate(); const time=$("formTime").value; const editId=$("editId").value;
+  const d=appointments.find(a=>a.id!==editId&&a.date===date&&a.time===time&&a.status!=="Cancelado");
+  if(d){w.textContent='⚠ Ya tienes un turno a las '+time+' con '+d.name+'. Ese horario no se puede duplicar.';w.classList.add('show');}
+  else w.classList.remove('show');
+}
+function escapeHtml(s){return String(s??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
+
+function renderClients(){
+  const box=$("clientList"); if(!box)return; const q=norm($("clientSearchInput")?.value); let cs=getClients();
+  if(q) cs=cs.filter(c=>norm(c.name).includes(q)||norm(c.contact).includes(q));
+  box.innerHTML=cs.length?"":'<div class="smart-note">No se encontraron clientas.</div>';
+  cs.forEach(c=>{const el=document.createElement('div');el.className='client-card';el.innerHTML='<strong>'+escapeHtml(c.name)+'</strong><small>'+escapeHtml(c.contact||'Sin contacto')+(c.last?' · Última: '+c.last.date:'')+'</small><div class="client-metrics"><div class="client-metric"><b>'+c.visits+'</b><span>visitas</span></div><div class="client-metric"><b>'+fmtMoney(c.spent)+'</b><span>gastado</span></div><div class="client-metric"><b>'+c.cancelled+'</b><span>cancel.</span></div></div>';el.addEventListener('click',()=>openClientProfile(c.key));box.appendChild(el);});
+}
+function openClientProfile(key){
+  const c=getClients().find(x=>x.key===key); if(!c)return;
+  $("clientProfileName").textContent=c.name; $("clientVisits").textContent=c.visits; $("clientSpent").textContent=fmtMoney(c.spent); $("clientCancelled").textContent=c.cancelled;
+  $("clientFavorite").textContent='Servicio más frecuente: '+c.favorite+(c.contact?' · '+c.contact:'');
+  const h=$("clientHistory"); h.innerHTML=''; [...c.items].sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time)).forEach(a=>{const r=document.createElement('div');r.className='history-row';r.innerHTML='<strong>'+escapeHtml(a.date)+'</strong><div><b>'+escapeHtml(a.service||'Turno')+'</b><small>'+escapeHtml(a.time)+' · '+escapeHtml(a.status||'Pendiente')+'</small></div><strong>'+fmtMoney(a.price||0)+'</strong>';h.appendChild(r);});
+  $("clientProfileModal").classList.add('show');
+}
+function renderSmartReminders(){
+  const box=$("smartReminders"); if(!box)return; const today=new Date(); const out=[];
+  getClients().forEach(c=>{if(!c.last)return; const last=new Date(c.last.date+'T12:00:00'); const days=Math.floor((today-last)/86400000); if(days>=28) out.push({days,c});});
+  out.sort((a,b)=>b.days-a.days); box.innerHTML='';
+  if(!out.length){box.innerHTML='<div class="smart-note">Todo al día. Aquí aparecerán clientas que llevan 4+ semanas sin volver.</div>';return;}
+  out.slice(0,8).forEach(({days,c})=>{const e=document.createElement('div');e.className='reminder-item';e.innerHTML='<strong>'+escapeHtml(c.name)+'</strong><span>Hace '+days+' días que no viene · '+escapeHtml(c.favorite)+'</span>';e.addEventListener('click',()=>openClientProfile(c.key));box.appendChild(e);});
+}
+
+function renderBusinessInsights(){
+  renderClientSuggestions(); renderClients(); renderSmartReminders();
+}
+
 function render(){
   renderCalendar();
   renderAppointments();
   renderStats();
+  renderBusinessInsights();
+  if($("turnModal").classList.contains("show")) updateOccupiedTimes();
 }
 
 $("prevMonthBtn").addEventListener("click",()=>{
@@ -4043,7 +4169,7 @@ $("turnModal").addEventListener("click",e=>{if(e.target===$("turnModal"))closeMo
 function exportBackup(){
   const payload = {
     app: "Amanda Brows Agenda",
-    version: 1,
+    version: 2,
     exportedAt: new Date().toISOString(),
     appointments: appointments
   };
@@ -4093,6 +4219,14 @@ $("exportBackupBtn").addEventListener("click", exportBackup);
 $("importBackupInput").addEventListener("change", function(){
   importBackupFile(this.files && this.files[0]);
 });
+
+$("formTime").addEventListener("input",checkConflictLive);
+$("formName").addEventListener("change",autofillClient);
+$("formWeek").addEventListener("change",updateOccupiedTimes);
+$("formWeekday").addEventListener("change",updateOccupiedTimes);
+$("clientSearchInput").addEventListener("input",renderClients);
+$("closeClientProfile").addEventListener("click",()=>$("clientProfileModal").classList.remove("show"));
+$("clientProfileModal").addEventListener("click",e=>{if(e.target===$("clientProfileModal"))$("clientProfileModal").classList.remove("show");});
 
 render();
 
