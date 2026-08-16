@@ -3552,6 +3552,116 @@ body{
   .service-option{min-height:42px;padding:9px 8px;font-size:10px}
 }
 
+
+/* ===== Calendario mensual exacto ===== */
+.calendar-weekdays{
+  display:grid;
+  grid-template-columns:repeat(7,minmax(0,1fr));
+  gap:6px;
+  margin:2px 0 7px;
+}
+.calendar-weekdays span{
+  text-align:center;
+  color:var(--muted);
+  font-size:10px;
+  font-weight:700;
+  letter-spacing:.4px;
+  text-transform:uppercase;
+  padding:4px 0;
+}
+.weekday-grid{
+  display:grid !important;
+  grid-template-columns:repeat(7,minmax(0,1fr)) !important;
+  gap:6px !important;
+  width:100%;
+}
+.calendar-day{
+  position:relative;
+  min-width:0;
+  min-height:58px;
+  border:1px solid transparent;
+  border-radius:13px;
+  background:#fcf9f7;
+  color:var(--ink);
+  display:flex;
+  align-items:flex-start;
+  justify-content:flex-start;
+  padding:8px;
+  cursor:pointer;
+  transition:.16s ease;
+  text-align:left;
+}
+.calendar-day:hover{border-color:#ead8d0}
+.calendar-day.outside{
+  background:#fffdfb;
+  color:#c8c0bc;
+}
+.calendar-day.today{
+  border-color:var(--accent);
+}
+.calendar-day.selected{
+  background:linear-gradient(145deg,#f4e5df,#f8eee9);
+  border-color:var(--accent);
+  box-shadow:inset 0 0 0 1px rgba(197,158,145,.16);
+}
+.calendar-day .day-number{
+  font-size:12px;
+  font-weight:700;
+  line-height:1;
+}
+.calendar-day .turn-count{
+  position:absolute;
+  right:5px;
+  bottom:5px;
+  min-width:18px;
+  height:18px;
+  padding:0 5px;
+  border-radius:999px;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  background:var(--accent);
+  color:#fff;
+  font-size:9px;
+  font-weight:800;
+  box-shadow:0 3px 8px rgba(159,119,109,.2);
+}
+.calendar-day .turn-count.show{display:flex}
+.calendar-day .turn-dot{
+  position:absolute;
+  left:8px;
+  bottom:10px;
+  width:5px;
+  height:5px;
+  border-radius:50%;
+  background:var(--accent);
+  display:none;
+}
+.calendar-day.has-turns .turn-dot{display:block}
+.week-btn{
+  min-width:0;
+}
+@media(max-width:480px){
+  .calendar-weekdays{gap:4px}
+  .calendar-weekdays span{font-size:8px}
+  .weekday-grid{gap:4px !important}
+  .calendar-day{
+    min-height:48px;
+    border-radius:11px;
+    padding:6px;
+  }
+  .calendar-day .day-number{font-size:11px}
+  .calendar-day .turn-count{
+    min-width:16px;
+    height:16px;
+    padding:0 4px;
+    font-size:8px;
+    right:4px;
+    bottom:4px;
+  }
+  .calendar-day .turn-dot{left:6px;bottom:8px}
+}
+
 </style>
 </head>
 <body>
@@ -3650,6 +3760,9 @@ body{
       </div>
 
       <div class="week-selector" id="weekSelector"></div>
+      <div class="calendar-weekdays" aria-hidden="true">
+        <span>Lun</span><span>Mar</span><span>Mié</span><span>Jue</span><span>Vie</span><span>Sáb</span><span>Dom</span>
+      </div>
       <div class="weekday-grid" id="weekdayGrid"></div>
     </section>
 
@@ -3786,7 +3899,7 @@ const now = new Date();
 let viewYear = now.getFullYear();
 let viewMonth = now.getMonth();
 let selectedWeek = getWeekNumber(now, viewYear, viewMonth);
-if (selectedWeek < 1 || selectedWeek > 4) selectedWeek = 1;
+if (selectedWeek < 1) selectedWeek = 1;
 let selectedWeekday = (now.getDay() + 6) % 7;
 let summaryYear = now.getFullYear();
 
@@ -3811,6 +3924,35 @@ function getWeekNumber(date, year, month){
   const b = new Date(start.getFullYear(),start.getMonth(),start.getDate());
   return Math.floor((a-b)/86400000/7)+1;
 }
+
+function weeksInMonthView(year, month){
+  const start = weekOneStart(year, month);
+  const last = new Date(year, month + 1, 0);
+  const days = Math.floor((last - start) / 86400000) + 1;
+  return Math.ceil(days / 7);
+}
+
+function clampSelectedWeek(){
+  const maxWeeks = weeksInMonthView(viewYear, viewMonth);
+  if (selectedWeek < 1) selectedWeek = 1;
+  if (selectedWeek > maxWeeks) selectedWeek = maxWeeks;
+}
+
+function syncFormWeekOptions(selectedValue){
+  const select = $("formWeek");
+  if (!select) return;
+  const maxWeeks = weeksInMonthView(viewYear, viewMonth);
+  const keep = Number(selectedValue || select.value || selectedWeek || 1);
+  select.innerHTML = "";
+  for(let w=1; w<=maxWeeks; w++){
+    const option = document.createElement("option");
+    option.value = String(w);
+    option.textContent = "Semana " + w;
+    select.appendChild(option);
+  }
+  select.value = String(Math.min(Math.max(keep,1),maxWeeks));
+}
+
 
 function saveDB(){
   localStorage.setItem(STORAGE_KEY, JSON.stringify(appointments));
@@ -3866,12 +4008,14 @@ function setSelectedServices(value){
 
 function openModal(editId){
   document.body.classList.add("modal-open");
+  syncFormWeekOptions(editId ? undefined : selectedWeek);
   $("editId").value = editId || "";
   if (editId) {
     const a = appointments.find(x => x.id === editId);
     if (!a) return;
     const d = parseISO(a.date);
     $("modalTitle").textContent = "Editar turno";
+    syncFormWeekOptions(getWeekNumber(d, viewYear, viewMonth));
     $("formWeek").value = String(getWeekNumber(d, viewYear, viewMonth));
     $("formWeekday").value = String((d.getDay()+6)%7);
     $("formTime").value = a.time;
@@ -3972,16 +4116,30 @@ function updateStatus(id, status){
 }
 
 function renderCalendar(){
+  clampSelectedWeek();
   $("monthTitle").textContent = monthNames[viewMonth]+" "+viewYear;
 
+  const totalWeeks = weeksInMonthView(viewYear, viewMonth);
+
   $("weekSelector").innerHTML = "";
-  for(let w=1; w<=4; w++){
+  for(let w=1; w<=totalWeeks; w++){
     const b = document.createElement("button");
     b.type = "button";
     b.className = "week-btn"+(w===selectedWeek ? " active" : "");
     b.textContent = "Semana "+w;
     b.addEventListener("click",()=>{
       selectedWeek = w;
+      const selectedDate = dateFor(viewYear,viewMonth,selectedWeek,selectedWeekday);
+      // If the same weekday falls outside the month, select the nearest day in that week that belongs to the month.
+      if (selectedDate.getMonth() !== viewMonth) {
+        for(let wd=0; wd<7; wd++){
+          const test = dateFor(viewYear,viewMonth,w,wd);
+          if (test.getMonth() === viewMonth) {
+            selectedWeekday = wd;
+            break;
+          }
+        }
+      }
       renderCalendar();
       renderAppointments();
     });
@@ -3989,22 +4147,46 @@ function renderCalendar(){
   }
 
   $("weekdayGrid").innerHTML = "";
-  for(let wd=0; wd<7; wd++){
-    const d = dateFor(viewYear,viewMonth,selectedWeek,wd);
-    const count = appointments.filter(a=>a.date===iso(d) && a.status!=="Cancelado").length;
+  const start = weekOneStart(viewYear, viewMonth);
+  const todayISO = iso(new Date());
+  const selectedISO = iso(currentDate());
+
+  for(let cell=0; cell<totalWeeks*7; cell++){
+    const d = new Date(start.getFullYear(), start.getMonth(), start.getDate()+cell);
+    const dISO = iso(d);
+    const count = appointments.filter(a=>a.date===dISO && a.status!=="Cancelado").length;
+    const week = Math.floor(cell/7)+1;
+    const weekday = cell%7;
 
     const b = document.createElement("button");
     b.type = "button";
-    b.className = "weekday-box"+(wd===selectedWeekday ? " active" : "");
-    b.innerHTML = '<span class="weekday-name">'+weekdayNames[wd]+'</span>'+
-      '<span class="appt-count '+(count>0?'show':'')+'">'+count+'</span>';
+    b.className = "calendar-day";
+    if (d.getMonth() !== viewMonth) b.classList.add("outside");
+    if (dISO === todayISO) b.classList.add("today");
+    if (dISO === selectedISO) b.classList.add("selected");
+    if (count > 0) b.classList.add("has-turns");
+
+    b.setAttribute("aria-label",
+      d.getDate()+" de "+monthNames[d.getMonth()]+" de "+d.getFullYear()+
+      (count ? ", "+count+(count===1?" turno":" turnos") : ", sin turnos")
+    );
+
+    b.innerHTML =
+      '<span class="day-number">'+d.getDate()+'</span>'+
+      '<span class="turn-dot"></span>'+
+      '<span class="turn-count '+(count>0?'show':'')+'">'+(count>0?count:"")+'</span>';
+
     b.addEventListener("click",()=>{
-      selectedWeekday = wd;
+      selectedWeek = week;
+      selectedWeekday = weekday;
       renderCalendar();
       renderAppointments();
     });
+
     $("weekdayGrid").appendChild(b);
   }
+
+  syncFormWeekOptions(selectedWeek);
 }
 
 function renderAppointments(){
