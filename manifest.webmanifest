@@ -1,0 +1,21 @@
+{
+  "name": "Amanda Brows — Agenda",
+  "short_name": "Amanda Brows",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f8f4f0",
+  "theme_color": "#f8f4f0",
+  "icons": [
+    {
+      "src": "amanda-brows-icon.png",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "amanda-brows-icon.png",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
